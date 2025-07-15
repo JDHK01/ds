@@ -1,0 +1,67 @@
+# Intel RealSense D435i + YOLO 系统依赖包
+
+# 核心依赖
+pyrealsense2>=2.54.1
+opencv-python>=4.8.0
+numpy>=1.21.0
+torch>=1.13.0
+torchvision>=0.14.0
+ultralytics>=8.0.0
+
+# 图像处理和计算机视觉
+Pillow>=9.0.0
+scikit-image>=0.19.0
+matplotlib>=3.5.0
+
+# 3D处理和点云
+open3d>=0.17.0
+
+# 数据处理和数学计算
+scipy>=1.9.0
+pandas>=1.5.0
+
+# 系统工具
+psutil>=5.9.0
+tqdm>=4.64.0
+colorama>=0.4.5
+
+# 配置和序列化
+pyyaml>=6.0
+toml>=0.10.2
+
+# 日志和调试
+loguru>=0.6.0
+
+# 性能监控
+memory-profiler>=0.60.0
+line-profiler>=4.0.0
+
+# ROS支持 (可选，仅在使用ROS时需要)
+# rospkg>=1.4.0
+# rospy>=1.15.0
+# cv-bridge>=1.16.0
+# sensor-msgs>=1.13.0
+# geometry-msgs>=1.13.0
+
+# 开发工具 (可选)
+pytest>=7.0.0
+black>=22.0.0
+flake8>=5.0.0
+isort>=5.10.0
+
+# Jupyter支持 (可选)
+# jupyter>=1.0.0
+# ipywidgets>=8.0.0
+
+# 可视化增强 (可选)
+# plotly>=5.0.0
+# seaborn>=0.11.0
+
+# GPU支持 (根据CUDA版本选择)
+# torch-audio>=0.13.0  # 仅在需要音频处理时
+# torchtext>=0.14.0    # 仅在需要文本处理时
+
+# 注意：
+# 1. 对于Jetson Orin Nano，PyTorch需要安装ARM64版本
+# 2. pyrealsense2在ARM64上需要从源码编译
+# 3. 部分包在ARM64上可能需要特殊安装方法

@@ -1,0 +1,209 @@
+# RealSense D435i + YOLO 系统 Docker Compose 配置
+version: '3.8'
+
+services:
+  # 主应用服务
+  realsense-yolo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
+        VCS_REF: ${VCS_REF:-$(git rev-parse --short HEAD)}
+        VERSION: ${VERSION:-1.0.0}
+    
+    container_name: realsense-yolo-system
+    
+    # 特权模式以访问USB设备
+    privileged: true
+    
+    # 设备映射
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    
+    # 卷映射
+    volumes:
+      # 数据持久化
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config:/app/config
+      
+      # X11显示支持
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev/dri:/dev/dri
+      
+      # USB设备
+      - /dev:/dev
+      
+      # 可选：摄像头设备
+      - /dev/video0:/dev/video0
+    
+    # 环境变量
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,display
+    
+    # 网络模式
+    network_mode: host
+    
+    # 重启策略
+    restart: unless-stopped
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # 依赖服务
+    depends_on:
+      - redis
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pyrealsense2; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # 日志配置
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 3
+    
+    # 命令覆盖
+    command: ["python", "main.py", "--verbose"]
+
+  # Redis缓存服务（可选，用于存储跟踪数据）
+  redis:
+    image: redis:7-alpine
+    container_name: realsense-yolo-redis
+    
+    volumes:
+      - redis_data:/data
+    
+    restart: unless-stopped
+    
+    # 内存限制
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    # 日志配置
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: 2
+
+  # 开发环境服务
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    
+    container_name: realsense-yolo-dev
+    
+    privileged: true
+    
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    
+    volumes:
+      # 开发时挂载源码
+      - .:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev/dri:/dev/dri
+      - /dev:/dev
+    
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - PYTHONUNBUFFERED=1
+      - DEVELOPMENT=true
+    
+    network_mode: host
+    
+    # 开发模式不自动重启
+    restart: "no"
+    
+    # 交互式终端
+    stdin_open: true
+    tty: true
+    
+    # 开发命令
+    command: ["bash"]
+    
+    profiles:
+      - development
+
+  # 基准测试服务
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: realsense-yolo-benchmark
+    
+    privileged: true
+    
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./models:/app/models
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - BENCHMARK_MODE=true
+    
+    # 基准测试命令
+    command: ["python", "main.py", "--benchmark", "--benchmark-duration", "120"]
+    
+    profiles:
+      - benchmark
+
+# 持久化卷
+volumes:
+  redis_data:
+    driver: local
+
+# 网络配置
+networks:
+  default:
+    driver: bridge
+
+# 扩展配置
+x-common-variables: &common-variables
+  PYTHONUNBUFFERED: 1
+  TZ: Asia/Shanghai
+
+x-common-logging: &common-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: 3
