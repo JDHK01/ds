@@ -120,6 +120,991 @@ python -c "from src.camera_manager import discover_realsense_devices; print(disc
 python -c "from mavsdk import System; print('MAVSDK installed successfully')"
 ```
 
+## 📖 完整API使用指南
+
+### 1. 统一API接口
+
+系统提供统一的API接口 `UnifiedDroneVisionAPI`，这是推荐的使用方式：
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_recommended_config
+
+async def main():
+    # 获取推荐配置
+    config = get_recommended_config('jetson_orin_nano')
+    
+    # 创建API实例
+    api = UnifiedDroneVisionAPI(config)
+    
+    # 初始化系统
+    if not api.initialize():
+        print("系统初始化失败")
+        return
+    
+    # 启动视觉系统
+    if not api.start_vision_system():
+        print("视觉系统启动失败")
+        return
+    
+    print("系统启动成功")
+    
+    # 清理资源
+    await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### 2. 配置系统详解
+
+#### 2.1 获取预设配置
+
+```python
+from config.drone_vision_config import (
+    get_config, get_scene_presets, get_follow_presets, 
+    get_tracker_configs, get_jetson_optimizations
+)
+
+# 获取所有可用的预设
+scenes = get_scene_presets()
+follow_presets = get_follow_presets()
+trackers = get_tracker_configs()
+jetson_opts = get_jetson_optimizations()
+
+print("可用场景:", list(scenes.keys()))
+print("跟随预设:", list(follow_presets.keys()))
+print("跟踪算法:", list(trackers.keys()))
+print("Jetson优化:", list(jetson_opts.keys()))
+```
+
+#### 2.2 自定义配置
+
+```python
+# 方法1：使用预设组合
+config = get_config(
+    scene='outdoor',           # 场景: indoor, outdoor, high_performance, low_power
+    follow_preset='balanced',  # 跟随: conservative, balanced, aggressive, cinematic
+    tracker='csrt',           # 跟踪: csrt, kcf, mosse, medianflow
+    jetson_optimization='performance'  # Jetson优化: performance, memory, power
+)
+
+# 方法2：自定义覆盖参数
+custom_config = get_config(
+    scene='outdoor',
+    follow_preset='balanced',
+    tracker='csrt',
+    custom_overrides={
+        'camera': {
+            'width': 1280,
+            'height': 720,
+            'fps': 60
+        },
+        'yolo': {
+            'confidence_threshold': 0.7,
+            'use_tensorrt': True
+        },
+        'following': {
+            'target_distance': 8.0,
+            'max_speed': 3.0
+        }
+    }
+)
+```
+
+#### 2.3 配置详细说明
+
+```python
+# 完整配置示例
+config = {
+    # 相机配置
+    'camera': {
+        'width': 640,              # 图像宽度
+        'height': 480,             # 图像高度
+        'fps': 30,                 # 帧率
+        'depth_format': 'Z16',     # 深度格式
+        'color_format': 'BGR8',    # 颜色格式
+        'align_to_color': True,    # 对齐到彩色图
+        'enable_filters': True,    # 启用滤波器
+        'laser_power': 150,        # 激光功率 (0-360)
+        'preset': 'high_density'   # 预设模式
+    },
+    
+    # YOLO检测配置
+    'yolo': {
+        'model_path': 'yolov8n.pt',      # 模型路径
+        'model_type': 'yolov8n',         # 模型类型
+        'confidence_threshold': 0.5,     # 置信度阈值
+        'iou_threshold': 0.45,           # IoU阈值
+        'device': 'cuda',                # 设备类型
+        'half': True,                    # 半精度推理
+        'imgsz': 416,                    # 输入图像尺寸
+        'use_tensorrt': False            # TensorRT加速
+    },
+    
+    # 跟踪配置
+    'tracking': {
+        'tracker_type': 'csrt',          # 跟踪器类型
+        'max_lost_frames': 15,           # 最大丢失帧数
+        'confidence_threshold': 0.3,     # 跟踪置信度
+        'search_radius': 150,            # 搜索半径
+        'max_targets': 10                # 最大目标数
+    },
+    
+    # 无人机配置
+    'drone': {
+        'max_speed': 3.0,               # 最大速度 (m/s)
+        'max_altitude': 25.0,           # 最大高度 (m)
+        'safety_radius': 100.0,         # 安全半径 (m)
+        'battery_warning_level': 20.0,  # 电池警告电量
+        'takeoff_altitude': 5.0         # 起飞高度
+    },
+    
+    # 跟随配置
+    'following': {
+        'target_distance': 6.0,         # 目标距离 (m)
+        'max_speed': 2.0,               # 最大跟随速度 (m/s)
+        'min_confidence': 0.4,          # 最小置信度
+        'position_p_gain': 0.5,         # 位置P增益
+        'safety_radius': 2.0,           # 安全半径 (m)
+        'max_yaw_rate': 30.0           # 最大偏航速度 (deg/s)
+    }
+}
+```
+
+### 3. 完整API使用示例
+
+#### 3.1 基础视觉检测
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+async def vision_only_example():
+    """仅视觉检测示例"""
+    
+    # 获取配置（不包含无人机）
+    config = get_config(scene='outdoor', tracker='csrt')
+    
+    # 创建API实例
+    api = UnifiedDroneVisionAPI(config)
+    
+    # 初始化系统
+    if not api.initialize():
+        print("系统初始化失败")
+        return
+    
+    # 启动视觉系统
+    if not api.start_vision_system():
+        print("视觉系统启动失败")
+        return
+    
+    # 注册检测回调
+    def on_detection(detections):
+        print(f"检测到 {len(detections)} 个目标")
+        for detection in detections:
+            print(f"  - {detection.class_name}: {detection.confidence:.2f}")
+    
+    api.register_callback('on_detection', on_detection)
+    
+    # 运行检测
+    try:
+        while True:
+            result = api.get_latest_result()
+            if result and result['fused_results']:
+                print(f"融合结果: {len(result['fused_results'])} 个3D目标")
+                for obj in result['fused_results']:
+                    print(f"  - {obj.detection.class_name}: "
+                          f"距离 {obj.distance_from_camera:.2f}m")
+            
+            await asyncio.sleep(0.1)
+    
+    except KeyboardInterrupt:
+        print("停止检测")
+    
+    finally:
+        await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(vision_only_example())
+```
+
+#### 3.2 无人机控制示例
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+async def drone_control_example():
+    """无人机控制示例"""
+    
+    # 获取完整配置
+    config = get_config(
+        scene='outdoor',
+        follow_preset='balanced',
+        tracker='csrt'
+    )
+    
+    # 创建API实例
+    api = UnifiedDroneVisionAPI(config)
+    
+    # 初始化系统
+    if not api.initialize():
+        print("系统初始化失败")
+        return
+    
+    # 启动视觉系统
+    if not api.start_vision_system():
+        print("视觉系统启动失败")
+        return
+    
+    # 连接无人机
+    if not await api.connect_drone("udp://:14540"):
+        print("无人机连接失败")
+        return
+    
+    print("无人机连接成功")
+    
+    # 注册事件回调
+    def on_mode_change(mode):
+        print(f"系统模式切换为: {mode}")
+    
+    def on_emergency(emergency_type):
+        print(f"紧急事件: {emergency_type}")
+    
+    api.register_callback('on_mode_change', on_mode_change)
+    api.register_callback('on_emergency', on_emergency)
+    
+    # 获取系统状态
+    status = api.get_system_status()
+    print(f"当前状态: {status}")
+    
+    # 清理资源
+    await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(drone_control_example())
+```
+
+#### 3.3 目标跟踪示例
+
+```python
+import asyncio
+import cv2
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+async def tracking_example():
+    """目标跟踪示例"""
+    
+    config = get_config(
+        scene='outdoor',
+        tracker='csrt'
+    )
+    
+    api = UnifiedDroneVisionAPI(config)
+    
+    if not api.initialize():
+        return
+    
+    if not api.start_vision_system():
+        return
+    
+    # 注册跟踪回调
+    def on_tracking_update(target):
+        print(f"跟踪更新: {target.class_name} - "
+              f"置信度: {target.confidence:.2f}, "
+              f"距离: {target.depth:.2f}m")
+    
+    def on_target_lost(data):
+        print("目标丢失")
+    
+    api.register_callback('on_tracking_update', on_tracking_update)
+    api.register_callback('on_target_lost', on_target_lost)
+    
+    # 等待用户选择目标
+    print("请在窗口中用鼠标框选要跟踪的目标...")
+    
+    # 简单的目标选择界面
+    while True:
+        result = api.get_latest_result()
+        if result and result['frame_data']:
+            frame = result['frame_data'].color_image
+            cv2.imshow('Select Target', frame)
+            
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+            elif key == ord('s'):  # 's'键开始跟踪
+                # 这里应该有鼠标选择目标的逻辑
+                # 为了示例，我们使用固定的边界框
+                target_bbox = (100, 100, 200, 200)  # (x, y, w, h)
+                
+                if api.start_tracking(target_bbox):
+                    print("开始跟踪目标")
+                    break
+        
+        await asyncio.sleep(0.1)
+    
+    cv2.destroyAllWindows()
+    await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(tracking_example())
+```
+
+#### 3.4 自主跟随示例
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI, FollowingParameters
+from config.drone_vision_config import get_config
+
+async def autonomous_following_example():
+    """自主跟随示例"""
+    
+    config = get_config(
+        scene='outdoor',
+        follow_preset='balanced',
+        tracker='csrt'
+    )
+    
+    api = UnifiedDroneVisionAPI(config)
+    
+    if not api.initialize():
+        return
+    
+    if not api.start_vision_system():
+        return
+    
+    # 连接无人机
+    if not await api.connect_drone():
+        return
+    
+    # 自定义跟随参数
+    follow_params = FollowingParameters(
+        target_distance=8.0,        # 8米跟随距离
+        max_speed=2.5,              # 最大速度2.5m/s
+        min_confidence=0.5,         # 最小置信度0.5
+        height_offset=1.0,          # 高度偏移1米
+        position_p_gain=0.4,        # 位置P增益
+        safety_radius=3.0           # 安全半径3米
+    )
+    
+    # 注册跟随回调
+    def on_follow_start(params):
+        print(f"开始跟随，参数: {params}")
+    
+    def on_follow_stop(data):
+        print("停止跟随")
+    
+    def on_target_lost(data):
+        print("目标丢失，悬停等待")
+    
+    api.register_callback('on_follow_start', on_follow_start)
+    api.register_callback('on_follow_stop', on_follow_stop)
+    api.register_callback('on_target_lost', on_target_lost)
+    
+    # 开始跟随（需要先选择目标）
+    target_bbox = (100, 100, 200, 200)  # 实际使用中应该通过界面选择
+    
+    if await api.start_following(target_bbox, follow_params):
+        print("开始自主跟随")
+        
+        # 运行跟随
+        try:
+            while True:
+                # 获取系统状态
+                status = api.get_system_status()
+                print(f"跟随状态: {status['mode']}")
+                
+                # 获取性能统计
+                stats = api.get_performance_stats()
+                print(f"帧率: {stats['frame_rate']:.1f}fps")
+                
+                await asyncio.sleep(1.0)
+        
+        except KeyboardInterrupt:
+            print("停止跟随")
+            await api.stop_following()
+    
+    await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(autonomous_following_example())
+```
+
+### 4. 高级功能使用
+
+#### 4.1 性能监控
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+async def performance_monitoring_example():
+    """性能监控示例"""
+    
+    config = get_config(scene='high_performance')
+    api = UnifiedDroneVisionAPI(config)
+    
+    if not api.initialize():
+        return
+    
+    if not api.start_vision_system():
+        return
+    
+    # 性能监控循环
+    while True:
+        # 获取性能统计
+        stats = api.get_performance_stats()
+        
+        print(f"性能统计:")
+        print(f"  帧率: {stats['frame_rate']:.1f} fps")
+        print(f"  检测率: {stats['detection_rate']:.1f} /s")
+        print(f"  跟踪率: {stats['tracking_rate']:.1f} /s")
+        print(f"  错误率: {stats['error_rate']:.3f} /s")
+        print(f"  运行时间: {stats['uptime']:.1f}s")
+        print("=" * 40)
+        
+        await asyncio.sleep(5.0)
+
+if __name__ == "__main__":
+    asyncio.run(performance_monitoring_example())
+```
+
+#### 4.2 配置保存和加载
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config, save_config, load_config
+
+async def config_management_example():
+    """配置管理示例"""
+    
+    # 创建自定义配置
+    config = get_config(
+        scene='outdoor',
+        follow_preset='aggressive',
+        tracker='csrt',
+        custom_overrides={
+            'camera': {'fps': 60},
+            'yolo': {'confidence_threshold': 0.7}
+        }
+    )
+    
+    # 保存配置
+    save_config(config, 'my_config.json')
+    print("配置已保存")
+    
+    # 加载配置
+    loaded_config = load_config('my_config.json')
+    print("配置已加载")
+    
+    # 使用加载的配置
+    api = UnifiedDroneVisionAPI(loaded_config)
+    
+    if api.initialize():
+        print("使用加载的配置初始化成功")
+        
+        # 运行时保存配置
+        api.save_configuration('runtime_config.json')
+        
+        # 运行时加载配置
+        if api.load_configuration('runtime_config.json'):
+            print("运行时配置加载成功")
+    
+    await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(config_management_example())
+```
+
+#### 4.3 多传感器融合
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+async def multi_sensor_fusion_example():
+    """多传感器融合示例"""
+    
+    config = get_config(scene='precision_tracking')
+    api = UnifiedDroneVisionAPI(config)
+    
+    if not api.initialize():
+        return
+    
+    if not api.start_vision_system():
+        return
+    
+    # 启用遥测监控
+    if await api.connect_drone():
+        print("无人机连接成功，开始多传感器融合")
+        
+        while True:
+            # 获取视觉结果
+            vision_result = api.get_latest_result()
+            
+            # 获取无人机遥测数据
+            telemetry = api.get_latest_telemetry()
+            
+            if vision_result and telemetry:
+                # 融合视觉和遥测数据
+                fused_data = {
+                    'vision_targets': len(vision_result['fused_results']),
+                    'drone_altitude': telemetry['telemetry'].get('altitude', 0),
+                    'drone_position': telemetry['telemetry'].get('position', None),
+                    'drone_velocity': telemetry['telemetry'].get('velocity', None),
+                    'battery_level': telemetry['safety_status'].get('battery_level', 0)
+                }
+                
+                print(f"融合数据: {fused_data}")
+            
+            await asyncio.sleep(0.1)
+    
+    await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(multi_sensor_fusion_example())
+```
+
+### 5. 组件级API使用
+
+如果需要更细粒度的控制，可以直接使用各个组件：
+
+#### 5.1 相机管理器
+
+```python
+from src.camera_manager import CameraManager, discover_realsense_devices
+from config.config import CAMERA_CONFIG
+
+# 发现设备
+devices = discover_realsense_devices()
+print(f"发现设备: {devices}")
+
+# 创建相机管理器
+camera = CameraManager(CAMERA_CONFIG)
+
+# 初始化相机
+if camera.initialize():
+    print("相机初始化成功")
+    
+    # 启动流
+    camera.start_streaming(threaded=True)
+    
+    # 获取帧数据
+    while True:
+        frame_data = camera.get_latest_frame()
+        if frame_data and frame_data.is_valid():
+            print(f"帧 {frame_data.frame_number}: "
+                  f"{frame_data.color_image.shape}, "
+                  f"{frame_data.depth_image.shape}")
+        
+        import time
+        time.sleep(0.1)
+```
+
+#### 5.2 目标检测器
+
+```python
+from src.object_detector import ObjectDetector
+from config.config import YOLO_CONFIG
+import cv2
+
+# 创建检测器
+detector = ObjectDetector(YOLO_CONFIG)
+
+# 初始化检测器
+if detector.initialize():
+    print("检测器初始化成功")
+    
+    # 加载测试图像
+    image = cv2.imread('test_image.jpg')
+    
+    # 执行检测
+    detections = detector.detect(image)
+    
+    print(f"检测到 {len(detections)} 个目标")
+    for detection in detections:
+        print(f"  - {detection.class_name}: {detection.confidence:.2f}")
+```
+
+#### 5.3 数据融合器
+
+```python
+from src.data_fusion import DataFusion
+from config.config import FUSION_CONFIG
+
+# 创建融合器
+fusion = DataFusion(FUSION_CONFIG)
+
+# 假设有检测结果和深度图
+# detections: List[DetectionResult]
+# depth_image: np.ndarray
+# intrinsics: Dict[str, float]
+
+# 执行融合
+fused_results = fusion.fuse_detections_with_depth(
+    detections, depth_image, intrinsics
+)
+
+print(f"融合结果: {len(fused_results)} 个3D目标")
+for result in fused_results:
+    print(f"  - {result.detection.class_name}: "
+          f"距离 {result.distance_from_camera:.2f}m, "
+          f"3D位置 {result.world_position}")
+```
+
+### 6. 错误处理和调试
+
+#### 6.1 错误处理示例
+
+```python
+import asyncio
+import logging
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def error_handling_example():
+    """错误处理示例"""
+    
+    config = get_config(scene='outdoor')
+    api = UnifiedDroneVisionAPI(config)
+    
+    # 注册错误回调
+    def on_error(error_message):
+        logger.error(f"系统错误: {error_message}")
+    
+    api.register_callback('on_error', on_error)
+    
+    try:
+        # 初始化系统
+        if not api.initialize():
+            logger.error("系统初始化失败")
+            return
+        
+        # 启动视觉系统
+        if not api.start_vision_system():
+            logger.error("视觉系统启动失败")
+            return
+        
+        # 尝试连接无人机
+        try:
+            if await api.connect_drone():
+                logger.info("无人机连接成功")
+            else:
+                logger.warning("无人机连接失败，继续仅视觉模式")
+        except Exception as e:
+            logger.error(f"无人机连接异常: {e}")
+        
+        # 主循环
+        while True:
+            try:
+                result = api.get_latest_result()
+                if result:
+                    logger.info(f"处理结果: {len(result['detections'])} 个检测")
+                
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                logger.error(f"处理循环异常: {e}")
+                await asyncio.sleep(1.0)  # 错误后稍等再试
+    
+    except KeyboardInterrupt:
+        logger.info("用户中断")
+    
+    except Exception as e:
+        logger.error(f"系统异常: {e}")
+    
+    finally:
+        # 确保资源清理
+        await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(error_handling_example())
+```
+
+#### 6.2 调试模式
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+async def debug_mode_example():
+    """调试模式示例"""
+    
+    # 启用调试配置
+    config = get_config(
+        scene='outdoor',
+        custom_overrides={
+            'system': {
+                'log_level': 'DEBUG',
+                'enable_profiling': True
+            },
+            'visualization': {
+                'save_results': True,
+                'output_dir': 'debug_output'
+            }
+        }
+    )
+    
+    api = UnifiedDroneVisionAPI(config)
+    
+    if not api.initialize():
+        return
+    
+    if not api.start_vision_system():
+        return
+    
+    # 运行调试会话
+    debug_count = 0
+    while debug_count < 100:  # 限制调试帧数
+        result = api.get_latest_result()
+        if result:
+            print(f"调试帧 {debug_count}: "
+                  f"{len(result['detections'])} 检测, "
+                  f"处理时间: {result['processing_time']:.3f}s")
+            
+            debug_count += 1
+        
+        await asyncio.sleep(0.1)
+    
+    # 获取性能统计
+    stats = api.get_performance_stats()
+    print(f"调试完成，性能统计: {stats}")
+    
+    await api.cleanup()
+
+if __name__ == "__main__":
+    asyncio.run(debug_mode_example())
+```
+
+### 7. 最佳实践
+
+#### 7.1 资源管理
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+@asynccontextmanager
+async def drone_vision_context(config):
+    """使用上下文管理器确保资源正确释放"""
+    api = UnifiedDroneVisionAPI(config)
+    
+    try:
+        if not api.initialize():
+            raise RuntimeError("系统初始化失败")
+        
+        if not api.start_vision_system():
+            raise RuntimeError("视觉系统启动失败")
+        
+        yield api
+        
+    finally:
+        await api.cleanup()
+
+async def best_practice_example():
+    """最佳实践示例"""
+    
+    config = get_config(scene='outdoor')
+    
+    # 使用上下文管理器
+    async with drone_vision_context(config) as api:
+        # 在这里使用API
+        print("系统已启动，开始处理...")
+        
+        # 设置错误处理
+        def on_error(error_msg):
+            print(f"错误: {error_msg}")
+        
+        api.register_callback('on_error', on_error)
+        
+        # 主处理循环
+        for i in range(100):
+            result = api.get_latest_result()
+            if result:
+                print(f"处理第 {i+1} 帧")
+            
+            await asyncio.sleep(0.1)
+    
+    # 资源自动清理
+    print("系统已清理")
+
+if __name__ == "__main__":
+    asyncio.run(best_practice_example())
+```
+
+#### 7.2 性能优化
+
+```python
+import asyncio
+from src.unified_drone_vision_api import UnifiedDroneVisionAPI
+from config.drone_vision_config import get_config
+
+async def performance_optimization_example():
+    """性能优化示例"""
+    
+    # 针对不同硬件的优化配置
+    if is_jetson_device():
+        config = get_config(
+            scene='outdoor',
+            jetson_optimization='performance',
+            custom_overrides={
+                'camera': {'fps': 30, 'width': 640, 'height': 480},
+                'yolo': {'imgsz': 416, 'half': True, 'use_tensorrt': True},
+                'system': {'thread_count': 4}
+            }
+        )
+    else:
+        config = get_config(
+            scene='high_performance',
+            custom_overrides={
+                'camera': {'fps': 60, 'width': 1280, 'height': 720},
+                'yolo': {'imgsz': 640, 'half': False},
+                'system': {'thread_count': 8}
+            }
+        )
+    
+    api = UnifiedDroneVisionAPI(config)
+    
+    if not api.initialize():
+        return
+    
+    if not api.start_vision_system():
+        return
+    
+    # 性能监控
+    import time
+    start_time = time.time()
+    frame_count = 0
+    
+    while frame_count < 1000:
+        result = api.get_latest_result()
+        if result:
+            frame_count += 1
+            
+            # 每100帧输出性能统计
+            if frame_count % 100 == 0:
+                elapsed = time.time() - start_time
+                fps = frame_count / elapsed
+                print(f"性能: {fps:.1f} fps, 已处理 {frame_count} 帧")
+        
+        await asyncio.sleep(0.001)  # 最小延迟
+    
+    await api.cleanup()
+
+def is_jetson_device():
+    """检测是否为Jetson设备"""
+    try:
+        with open('/etc/nv_tegra_release', 'r') as f:
+            return 'tegra' in f.read().lower()
+    except:
+        return False
+
+if __name__ == "__main__":
+    asyncio.run(performance_optimization_example())
+```
+
+## 📊 性能优化
+
+### Jetson Orin Nano优化配置
+
+| 配置模式 | 分辨率 | FPS | CPU使用率 | 内存使用 | 功耗 |
+|----------|--------|-----|-----------|----------|------|
+| 低功耗   | 424x240 | 15  | 35%       | 2.1GB    | 8W   |
+| 平衡     | 640x480 | 30  | 55%       | 3.2GB    | 12W  |
+| 高性能   | 848x480 | 60  | 75%       | 4.5GB    | 18W  |
+
+### 跟踪算法性能对比
+
+| 算法 | 平均FPS | 跟踪精度 | 内存占用 | 推荐场景 |
+|------|---------|----------|----------|----------|
+| CSRT | 25      | 92%      | 180MB    | 通用场景 |
+| KCF  | 45      | 85%      | 120MB    | 实时应用 |
+| MOSSE| 60      | 78%      | 80MB     | 高帧率需求 |
+
+### 优化建议
+
+1. **提高帧率**: 使用MOSSE跟踪器 + 低分辨率
+2. **提高精度**: 使用CSRT跟踪器 + 高分辨率
+3. **降低延迟**: 启用TensorRT加速
+4. **节省内存**: 使用内存优化配置
+5. **延长续航**: 使用功耗优化配置
+
+## 🔧 故障排除
+
+### 常见问题及解决方案
+
+#### 1. 相机连接问题
+```bash
+# 检查相机连接
+rs-enumerate-devices
+
+# 检查USB权限
+ls -la /dev/video*
+
+# 重新安装驱动
+sudo apt install --reinstall librealsense2-dkms
+```
+
+#### 2. 无人机连接问题
+```bash
+# 检查MAVSDK连接
+python -c "from mavsdk import System; print('MAVSDK OK')"
+
+# 检查端口
+netstat -tulpn | grep 14540
+
+# 测试连接
+mavproxy.py --master=udp:127.0.0.1:14540
+```
+
+#### 3. 性能问题
+```bash
+# 检查GPU状态
+nvidia-smi
+
+# 检查系统资源
+htop
+
+# 优化GPU内存
+export CUDA_VISIBLE_DEVICES=0
+```
+
+#### 4. 跟踪问题
+- 确保良好的光照条件
+- 调整置信度阈值
+- 尝试不同的跟踪算法
+- 检查相机标定
+
+### 调试模式
+
+```bash
+# 启用详细日志
+python examples/drone_vision_demo.py --config outdoor --verbose
+
+# 保存调试数据
+python examples/drone_vision_demo.py --config outdoor --save-debug
+
+# 性能分析
+python examples/drone_vision_demo.py --config outdoor --profile
+```
+
 ## 🎮 使用指南
 
 ### 1. 基础使用
@@ -226,254 +1211,6 @@ python examples/drone_vision_demo.py --jetson-optimization power
 - 确保紧急停止功能正常工作
 - 监控电池电量和GPS信号
 - 保持视距内飞行
-
-## 🔧 API 使用
-
-### 基础API示例
-
-```python
-import asyncio
-from src.unified_drone_vision_api import UnifiedDroneVisionAPI
-from config.drone_vision_config import get_recommended_config
-
-async def main():
-    # 获取推荐配置
-    config = get_recommended_config('jetson_orin_nano')
-    
-    # 创建API实例
-    api = UnifiedDroneVisionAPI(config)
-    
-    # 初始化系统
-    if not api.initialize():
-        print("系统初始化失败")
-        return
-    
-    # 启动视觉系统
-    if not api.start_vision_system():
-        print("视觉系统启动失败")
-        return
-    
-    # 连接无人机
-    if await api.connect_drone():
-        print("无人机连接成功")
-        
-        # 注册回调函数
-        api.register_callback('on_detection', lambda detections: 
-            print(f"检测到 {len(detections)} 个目标"))
-        
-        # 开始跟踪
-        bbox = (100, 100, 200, 200)  # (x, y, w, h)
-        if api.start_tracking(bbox):
-            print("开始跟踪目标")
-            
-            # 开始跟随
-            if await api.start_following(bbox):
-                print("开始跟随目标")
-                
-                # 等待一段时间
-                await asyncio.sleep(30)
-                
-                # 停止跟随
-                await api.stop_following()
-    
-    # 清理资源
-    await api.cleanup()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-### 高级API示例
-
-```python
-from src.unified_drone_vision_api import UnifiedDroneVisionAPI, FollowingParameters
-from config.drone_vision_config import get_config
-
-# 自定义配置
-config = get_config(
-    scene='outdoor',
-    follow_preset='aggressive',
-    tracker='csrt',
-    jetson_optimization='performance',
-    custom_overrides={
-        'yolo': {
-            'confidence_threshold': 0.6,
-            'use_tensorrt': True
-        },
-        'tracking': {
-            'max_lost_frames': 20
-        }
-    }
-)
-
-# 创建API实例
-api = UnifiedDroneVisionAPI(config)
-
-# 自定义跟随参数
-follow_params = FollowingParameters(
-    target_distance=8.0,
-    max_speed=3.0,
-    min_confidence=0.5,
-    height_offset=1.0
-)
-
-# 注册自定义回调
-def on_target_lost(data):
-    print("目标丢失，执行搜索策略")
-    # 实现自定义搜索逻辑
-
-api.register_callback('on_target_lost', on_target_lost)
-```
-
-## 📊 性能优化
-
-### Jetson Orin Nano优化配置
-
-| 配置模式 | 分辨率 | FPS | CPU使用率 | 内存使用 | 功耗 |
-|----------|--------|-----|-----------|----------|------|
-| 低功耗   | 424x240 | 15  | 35%       | 2.1GB    | 8W   |
-| 平衡     | 640x480 | 30  | 55%       | 3.2GB    | 12W  |
-| 高性能   | 848x480 | 60  | 75%       | 4.5GB    | 18W  |
-
-### 跟踪算法性能对比
-
-| 算法 | 平均FPS | 跟踪精度 | 内存占用 | 推荐场景 |
-|------|---------|----------|----------|----------|
-| CSRT | 25      | 92%      | 180MB    | 通用场景 |
-| KCF  | 45      | 85%      | 120MB    | 实时应用 |
-| MOSSE| 60      | 78%      | 80MB     | 高帧率需求 |
-
-### 优化建议
-
-1. **提高帧率**: 使用MOSSE跟踪器 + 低分辨率
-2. **提高精度**: 使用CSRT跟踪器 + 高分辨率
-3. **降低延迟**: 启用TensorRT加速
-4. **节省内存**: 使用内存优化配置
-5. **延长续航**: 使用功耗优化配置
-
-## 🛠️ 开发指南
-
-### 项目结构
-
-```
-drone-vision-system/
-├── src/                           # 源代码
-│   ├── unified_drone_vision_api.py  # 统一API层
-│   ├── drone_controller.py         # 无人机控制器
-│   ├── tracking_controller.py      # 跟踪控制器
-│   ├── camera_manager.py           # 相机管理器
-│   ├── object_detector.py          # 目标检测器
-│   ├── data_fusion.py              # 数据融合器
-│   └── visualizer.py               # 可视化器
-├── config/                        # 配置文件
-│   ├── drone_vision_config.py     # 主配置文件
-│   └── config.py                  # 基础配置
-├── examples/                      # 示例程序
-│   ├── drone_vision_demo.py       # 交互式演示
-│   └── basic_usage.py             # 基础使用示例
-├── tests/                         # 测试代码
-├── scripts/                       # 安装脚本
-├── docs/                          # 文档
-└── requirements.txt               # 依赖列表
-```
-
-### 添加新功能
-
-#### 1. 添加新的跟踪算法
-```python
-# 在 tracking_controller.py 中添加
-class CustomTracker:
-    def __init__(self, config):
-        self.config = config
-        
-    def init(self, frame, bbox):
-        # 初始化跟踪器
-        pass
-        
-    def update(self, frame):
-        # 更新跟踪
-        pass
-```
-
-#### 2. 添加新的配置预设
-```python
-# 在 drone_vision_config.py 中添加
-CUSTOM_PRESET = {
-    'name': '自定义预设',
-    'description': '针对特定场景的自定义配置',
-    'config': {
-        'camera': {'fps': 60},
-        'yolo': {'confidence_threshold': 0.7}
-    }
-}
-```
-
-#### 3. 扩展无人机控制功能
-```python
-# 在 drone_controller.py 中添加
-async def custom_flight_mode(self):
-    # 实现自定义飞行模式
-    pass
-```
-
-## 🔧 故障排除
-
-### 常见问题及解决方案
-
-#### 1. 相机连接问题
-```bash
-# 检查相机连接
-rs-enumerate-devices
-
-# 检查USB权限
-ls -la /dev/video*
-
-# 重新安装驱动
-sudo apt install --reinstall librealsense2-dkms
-```
-
-#### 2. 无人机连接问题
-```bash
-# 检查MAVSDK连接
-python -c "from mavsdk import System; print('MAVSDK OK')"
-
-# 检查端口
-netstat -tulpn | grep 14540
-
-# 测试连接
-mavproxy.py --master=udp:127.0.0.1:14540
-```
-
-#### 3. 性能问题
-```bash
-# 检查GPU状态
-nvidia-smi
-
-# 检查系统资源
-htop
-
-# 优化GPU内存
-export CUDA_VISIBLE_DEVICES=0
-```
-
-#### 4. 跟踪问题
-- 确保良好的光照条件
-- 调整置信度阈值
-- 尝试不同的跟踪算法
-- 检查相机标定
-
-### 调试模式
-
-```bash
-# 启用详细日志
-python examples/drone_vision_demo.py --config outdoor --verbose
-
-# 保存调试数据
-python examples/drone_vision_demo.py --config outdoor --save-debug
-
-# 性能分析
-python examples/drone_vision_demo.py --config outdoor --profile
-```
 
 ## 📈 扩展功能
 

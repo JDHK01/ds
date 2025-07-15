@@ -1,71 +1,217 @@
-# Intel RealSense D435i + YOLO 系统依赖包
+# 无人机视觉系统依赖包
+# Drone Vision System - RealSense D435i + YOLO + PX4 Control
 
-# 核心依赖
+# ====================================
+# 核心系统依赖 / Core System Dependencies
+# ====================================
+
+# Intel RealSense SDK
 pyrealsense2>=2.54.1
+
+# 计算机视觉和图像处理 / Computer Vision & Image Processing
 opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0
+Pillow>=9.0.0
+scikit-image>=0.19.0
+
+# 数值计算 / Numerical Computing
 numpy>=1.21.0
+scipy>=1.9.0
+pandas>=1.5.0
+
+# 深度学习框架 / Deep Learning Framework
 torch>=1.13.0
 torchvision>=0.14.0
 ultralytics>=8.0.0
 
-# 无人机控制
+# ====================================
+# 无人机控制 / Drone Control
+# ====================================
+
+# MAVSDK for PX4 drone control
 mavsdk>=1.4.0
+
+# 异步编程支持 / Async Programming Support
+aiofiles>=22.1.0
 asyncio-mqtt>=0.13.0
 
-# 图像处理和计算机视觉
-Pillow>=9.0.0
-scikit-image>=0.19.0
-matplotlib>=3.5.0
+# ====================================
+# 3D处理和点云 / 3D Processing & Point Cloud
+# ====================================
 
-# 3D处理和点云
+# 3D data processing
 open3d>=0.17.0
 
-# 数据处理和数学计算
-scipy>=1.9.0
-pandas>=1.5.0
+# ====================================
+# 系统工具和实用程序 / System Tools & Utilities
+# ====================================
 
-# 系统工具
+# 系统监控 / System Monitoring
 psutil>=5.9.0
+GPUtil>=1.4.0
+
+# 进度条和用户界面 / Progress Bars & UI
 tqdm>=4.64.0
 colorama>=0.4.5
+click>=8.0.0
 
-# 配置和序列化
+# 数据序列化和配置 / Data Serialization & Configuration
 pyyaml>=6.0
 toml>=0.10.2
+configparser>=5.3.0
 
-# 日志和调试
+# ====================================
+# 日志和调试 / Logging & Debugging
+# ====================================
+
+# 高级日志 / Advanced Logging
 loguru>=0.6.0
 
-# 性能监控
+# 性能分析 / Performance Profiling
 memory-profiler>=0.60.0
 line-profiler>=4.0.0
+py-spy>=0.3.0
 
-# ROS支持 (可选，仅在使用ROS时需要)
+# ====================================
+# 可视化 / Visualization
+# ====================================
+
+# 基础绘图 / Basic Plotting
+matplotlib>=3.5.0
+
+# 高级可视化 (可选) / Advanced Visualization (Optional)
+plotly>=5.0.0
+seaborn>=0.11.0
+
+# ====================================
+# 网络和通信 / Networking & Communication
+# ====================================
+
+# HTTP客户端 / HTTP Client
+requests>=2.28.0
+
+# WebSocket支持 / WebSocket Support
+websockets>=10.4
+
+# 串口通信 / Serial Communication
+pyserial>=3.5
+
+# ====================================
+# Jetson Orin Nano 特定优化 / Jetson Orin Nano Specific
+# ====================================
+
+# 注意：以下包在Jetson上可能需要特殊安装
+# Note: The following packages may require special installation on Jetson
+
+# CUDA支持 (仅在有NVIDIA GPU时) / CUDA Support (Only with NVIDIA GPU)
+# 通过conda或官方NVIDIA渠道安装 / Install via conda or official NVIDIA channels
+# torch-tensorrt>=1.3.0
+# tensorrt>=8.5.0
+
+# TensorFlow (可选，用于某些模型) / TensorFlow (Optional, for certain models)
+# tensorflow>=2.10.0
+
+# ====================================
+# 开发和测试工具 / Development & Testing Tools
+# ====================================
+
+# 单元测试 / Unit Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-asyncio>=0.21.0
+
+# 代码格式化和检查 / Code Formatting & Linting
+black>=22.0.0
+flake8>=5.0.0
+isort>=5.10.0
+autopep8>=2.0.0
+
+# 类型检查 / Type Checking
+mypy>=1.0.0
+
+# ====================================
+# 可选依赖 / Optional Dependencies
+# ====================================
+
+# ROS/ROS2 支持 (仅在使用ROS时启用) / ROS/ROS2 Support (Enable only when using ROS)
 # rospkg>=1.4.0
 # rospy>=1.15.0
 # cv-bridge>=1.16.0
 # sensor-msgs>=1.13.0
 # geometry-msgs>=1.13.0
+# rclpy>=3.3.0  # For ROS2
 
-# 开发工具 (可选)
-pytest>=7.0.0
-black>=22.0.0
-flake8>=5.0.0
-isort>=5.10.0
-
-# Jupyter支持 (可选)
+# Jupyter 开发环境 / Jupyter Development Environment
 # jupyter>=1.0.0
+# jupyterlab>=3.4.0
 # ipywidgets>=8.0.0
+# notebook>=6.4.0
 
-# 可视化增强 (可选)
-# plotly>=5.0.0
-# seaborn>=0.11.0
+# Web 界面支持 / Web Interface Support
+# flask>=2.2.0
+# flask-socketio>=5.3.0
+# dash>=2.7.0
+# streamlit>=1.15.0
 
-# GPU支持 (根据CUDA版本选择)
-# torch-audio>=0.13.0  # 仅在需要音频处理时
-# torchtext>=0.14.0    # 仅在需要文本处理时
+# 数据库支持 / Database Support
+# sqlite3 (内置 / built-in)
+# sqlalchemy>=1.4.0
+# pymongo>=4.3.0
 
-# 注意：
-# 1. 对于Jetson Orin Nano，PyTorch需要安装ARM64版本
-# 2. pyrealsense2在ARM64上需要从源码编译
-# 3. 部分包在ARM64上可能需要特殊安装方法
+# 机器学习扩展 / Machine Learning Extensions
+# scikit-learn>=1.1.0
+# xgboost>=1.7.0
+# lightgbm>=3.3.0
+
+# 音频处理 (如果需要) / Audio Processing (if needed)
+# torch-audio>=0.13.0
+# librosa>=0.9.0
+
+# ====================================
+# 平台特定说明 / Platform-Specific Notes
+# ====================================
+
+# Jetson Orin Nano 安装注意事项:
+# 1. PyTorch: 使用NVIDIA提供的wheel文件
+#    wget https://nvidia.box.com/shared/static/[latest-pytorch-wheel]
+#    pip install torch-*.whl
+#
+# 2. pyrealsense2: 可能需要从源码编译
+#    git clone https://github.com/IntelRealSense/librealsense.git
+#    按照官方文档编译安装
+#
+# 3. OpenCV: 推荐使用预编译版本或从源码编译启用CUDA支持
+#
+# 4. CUDA相关包: 确保CUDA版本兼容性
+#    export CUDA_HOME=/usr/local/cuda
+#    export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+
+# Ubuntu/PC 安装注意事项:
+# 1. 确保安装了适当的CUDA驱动和工具包
+# 2. 对于RealSense相机，需要安装Intel RealSense SDK
+# 3. 某些包可能需要系统级依赖：
+#    sudo apt update
+#    sudo apt install -y python3-dev python3-pip
+#    sudo apt install -y libopencv-dev python3-opencv
+#    sudo apt install -y libusb-1.0-0-dev pkg-config
+#    sudo apt install -y libeigen3-dev libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev
+
+# ====================================
+# 版本兼容性矩阵 / Version Compatibility Matrix
+# ====================================
+
+# Python 3.8+: 所有依赖完全支持
+# Python 3.9+: 推荐版本，最佳性能
+# Python 3.10+: 最新特性支持
+# Python 3.11+: 实验性支持
+
+# CUDA 11.4+: PyTorch GPU支持
+# CUDA 11.7+: 推荐版本
+# CUDA 11.8+: 最新优化
+
+# Ubuntu 20.04 LTS: 完全支持
+# Ubuntu 22.04 LTS: 推荐版本
+# Ubuntu 22.10+: 实验性支持
+
+# 最后更新: 2024年
+# 项目网站: https://github.com/your-username/drone-vision-system
