@@ -15,9 +15,10 @@ pipeline.start(config)
 
 '''
 获取传感器模块 + 获取转换比例
+其实主要就是获得一个转换比例
 PS:这里获得的值每个像素表示一个深度, 但是这里的深度不是距离, 需要乘以一个系数
 '''
-depth_sensor = pipeline.get_active_profile().get_device().first_depth_sensor();
+depth_sensor = pipeline.get_active_profile().get_device().first_depth_sensor()
 depth_scale = depth_sensor.get_depth_scale()
 
 '''
