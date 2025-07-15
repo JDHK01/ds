@@ -8,6 +8,10 @@ torch>=1.13.0
 torchvision>=0.14.0
 ultralytics>=8.0.0
 
+# 无人机控制
+mavsdk>=1.4.0
+asyncio-mqtt>=0.13.0
+
 # 图像处理和计算机视觉
 Pillow>=9.0.0
 scikit-image>=0.19.0
