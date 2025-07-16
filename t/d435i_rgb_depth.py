@@ -92,8 +92,11 @@ try:
         cv2.imshow('RealSense RGB', color_image)
         cv2.imshow('RealSense Depth', depth_colormap)
         
+
+
+        # test
         # 处理按键
-        key = cv2.waitKey(0.5) & 0xFF
+        key = cv2.waitKey(1) & 0xFF
         
         if key == 27:  # ESC键退出
             break
